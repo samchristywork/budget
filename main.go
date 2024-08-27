@@ -48,7 +48,14 @@ func getInput(prompt string) string {
 	return strings.TrimSpace(text)
 }
 
-func addNewLineItems(lineItems []LineItem, f *os.File) []LineItem {
+func addNewLineItems(lineItems []LineItem, file string) []LineItem {
+	f, err := os.Open(file)
+	if err != nil {
+		fmt.Println("Error opening file: ", err)
+		os.Exit(1)
+	}
+	defer f.Close()
+
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -62,6 +69,10 @@ func addNewLineItems(lineItems []LineItem, f *os.File) []LineItem {
 		}
 		if exists {
 			continue
+		}
+
+		if strings.Contains(line, "	") {
+			line = strings.ReplaceAll(line, "	", " ")
 		}
 
 		fmt.Println(line)
