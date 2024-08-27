@@ -79,5 +79,28 @@ func addNewLineItems(lineItems []LineItem, f *os.File) []LineItem {
 	return lineItems
 }
 
+func deserialize(saveFile string) []LineItem {
+	f, err := os.Open(saveFile)
+	if err != nil {
+		fmt.Println("Error opening file: ", err)
+		return []LineItem{}
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	lineItems := []LineItem{}
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Split(line, "	")
+		lineItem := LineItem{}
+		lineItem.Category = parts[0]
+		lineItem.Date = parts[1]
+		lineItem.Amount = parts[2]
+		lineItem.Data = parts[3]
+		lineItems = append(lineItems, lineItem)
+	}
+	return lineItems
+}
+
 func main() {
 }
