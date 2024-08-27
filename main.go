@@ -102,5 +102,29 @@ func deserialize(saveFile string) []LineItem {
 	return lineItems
 }
 
+func induct(file string) {
+	f, err := os.Open(file)
+	if err != nil {
+		fmt.Println("Error opening file: ", err)
+		return
+	}
+	defer f.Close()
+
+	lineItems := deserialize(saveFile)
+
+	lineItems = addNewLineItems(lineItems, f)
+
+	serialize(lineItems)
+}
+
 func main() {
+	inductFile := flag.String("induct", "", "The file to induct")
+
+	flag.Parse()
+
+	if *inductFile != "" {
+		induct(*inductFile)
+	} else {
+		flag.Usage()
+	}
 }
