@@ -155,12 +155,20 @@ func printSummary(startDate string, endDate string) {
 }
 
 func main() {
+	end := time.Now().Format("2006-01-02")
+	start := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
+
 	inductFile := flag.String("induct", "", "The file to induct")
+	summaryFlag := flag.Bool("summary", false, "Print a summary of all transactions")
+	endDate := flag.String("end", end, "The end date for the summary")
+	startDate := flag.String("start", start, "The start date for the summary")
 
 	flag.Parse()
 
 	if *inductFile != "" {
 		induct(*inductFile)
+	} else if *summaryFlag {
+		printSummary(*startDate, *endDate)
 	} else {
 		flag.Usage()
 	}
