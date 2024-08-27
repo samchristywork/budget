@@ -5,7 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 var saveFile = "inducted.csv"
@@ -15,6 +17,11 @@ type LineItem struct {
 	Date     string
 	Amount   string
 	Data     string
+}
+
+type HistogramRow struct {
+	Amount float64
+	Number int
 }
 
 func serialize(lineItems []LineItem) {
@@ -103,18 +110,37 @@ func deserialize(saveFile string) []LineItem {
 }
 
 func induct(file string) {
-	f, err := os.Open(file)
-	if err != nil {
-		fmt.Println("Error opening file: ", err)
-		return
-	}
-	defer f.Close()
+	lineItems := deserialize(saveFile)
+	lineItems = addNewLineItems(lineItems, file)
+	serialize(lineItems)
+}
+
+func printSummary(startDate string, endDate string) {
+	fmt.Printf("Summary from %s to %s\n", startDate, endDate)
 
 	lineItems := deserialize(saveFile)
 
-	lineItems = addNewLineItems(lineItems, f)
+	categoryMap := make(map[string]HistogramRow)
+	for _, lineItem := range lineItems {
+		if lineItem.Date < startDate || lineItem.Date > endDate {
+			continue
+		}
 
-	serialize(lineItems)
+		amount, _ := strconv.ParseFloat(lineItem.Amount, 64)
+		categoryMap[lineItem.Category] = HistogramRow{
+			Amount: categoryMap[lineItem.Category].Amount + amount,
+			Number: categoryMap[lineItem.Category].Number + 1,
+		}
+	}
+
+	for category, amount := range categoryMap {
+		if category == "Ignored" {
+			continue
+		}
+
+		fmt.Printf("%s: %.2f (%d Transactions)\n",
+			category, amount.Amount, amount.Number)
+	}
 }
 
 func main() {
