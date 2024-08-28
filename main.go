@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/csv"
 	"flag"
 	"fmt"
 	"os"
@@ -13,10 +14,10 @@ import (
 var saveFile = "inducted.csv"
 
 type LineItem struct {
-	Category string
-	Date     string
-	Amount   string
-	Data     string
+	Category    string
+	Date        string
+	Amount      string
+	Description string
 }
 
 type HistogramRow struct {
@@ -28,15 +29,20 @@ func serialize(lineItems []LineItem) {
 	f, err := os.Create(saveFile)
 	if err != nil {
 		fmt.Println("Error creating file: ", err)
-		return
+		os.Exit(1)
 	}
 	defer f.Close()
 
+	writer := csv.NewWriter(f)
+	defer writer.Flush()
+
 	for _, lineItem := range lineItems {
-		f.WriteString(lineItem.Category + "	")
-		f.WriteString(lineItem.Date + "	")
-		f.WriteString(lineItem.Amount + "	")
-		f.WriteString(lineItem.Data + "\n")
+		writer.Write([]string{
+			lineItem.Category,
+			lineItem.Date,
+			lineItem.Amount,
+			lineItem.Description,
+		})
 	}
 }
 
@@ -56,13 +62,23 @@ func addNewLineItems(lineItems []LineItem, file string) []LineItem {
 	}
 	defer f.Close()
 
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := scanner.Text()
+	reader := csv.NewReader(f)
+	records, err := reader.ReadAll()
+	if err != nil {
+		fmt.Println("Error reading file: ", err)
+		os.Exit(1)
+	}
+
+	for _, record := range records {
+		date := record[0]
+		description := record[1]
+		amount := record[4]
 
 		exists := false
 		for _, lineItem := range lineItems {
-			if strings.Contains(line, lineItem.Data) {
+			if lineItem.Description == description &&
+				lineItem.Date == date &&
+				lineItem.Amount == amount {
 				exists = true
 				continue
 			}
@@ -71,52 +87,50 @@ func addNewLineItems(lineItems []LineItem, file string) []LineItem {
 			continue
 		}
 
-		if strings.Contains(line, "	") {
-			line = strings.ReplaceAll(line, "	", " ")
-		}
-
-		fmt.Println(line)
+		fmt.Println(record)
 		lineItem := LineItem{}
 		lineItem.Category = getInput("Category: ")
+
 		if lineItem.Category == "" {
 			lineItem.Category = "Ignored"
-			lineItem.Data = line
-			lineItems = append(lineItems, lineItem)
-		} else {
-			lineItem.Date = getInput("Date: ")
-			lineItem.Amount = getInput("Amount: ")
-			lineItem.Data = line
-			lineItems = append(lineItems, lineItem)
 		}
-	}
 
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Error reading file: ", err)
+		lineItem.Date = date
+		lineItem.Amount = amount
+		lineItem.Description = description
+		lineItems = append(lineItems, lineItem)
 	}
 
 	return lineItems
 }
 
 func deserialize(saveFile string) []LineItem {
+	lineItems := make([]LineItem, 0)
+
 	f, err := os.Open(saveFile)
 	if err != nil {
-		fmt.Println("Error opening file: ", err)
-		return []LineItem{}
+		fmt.Println("File does not exist, creating new file")
+		return lineItems
 	}
 	defer f.Close()
 
-	scanner := bufio.NewScanner(f)
-	lineItems := []LineItem{}
-	for scanner.Scan() {
-		line := scanner.Text()
-		parts := strings.Split(line, "	")
-		lineItem := LineItem{}
-		lineItem.Category = parts[0]
-		lineItem.Date = parts[1]
-		lineItem.Amount = parts[2]
-		lineItem.Data = parts[3]
+	reader := csv.NewReader(f)
+	records, err := reader.ReadAll()
+	if err != nil {
+		fmt.Println("Error reading file: ", err)
+		os.Exit(1)
+	}
+
+	for _, record := range records {
+		lineItem := LineItem{
+			Category:    record[0],
+			Date:        record[1],
+			Amount:      record[2],
+			Description: record[3],
+		}
 		lineItems = append(lineItems, lineItem)
 	}
+
 	return lineItems
 }
 
@@ -126,6 +140,18 @@ func induct(file string) {
 	serialize(lineItems)
 }
 
+func parseDate(date string) int64 {
+	t, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		t, err := time.Parse("01/02/2006", date)
+		if err != nil {
+			return 0
+		}
+		return t.Unix()
+	}
+	return t.Unix()
+}
+
 func printSummary(startDate string, endDate string) {
 	fmt.Printf("Summary from %s to %s\n", startDate, endDate)
 
@@ -133,11 +159,17 @@ func printSummary(startDate string, endDate string) {
 
 	categoryMap := make(map[string]HistogramRow)
 	for _, lineItem := range lineItems {
-		if lineItem.Date < startDate || lineItem.Date > endDate {
+		if parseDate(lineItem.Date) < parseDate(startDate) || parseDate(lineItem.Date) > parseDate(endDate) {
 			continue
 		}
 
-		amount, _ := strconv.ParseFloat(lineItem.Amount, 64)
+		a := strings.Replace(lineItem.Amount, "$", "", -1)
+		a = strings.Replace(a, ",", "", -1)
+		amount, err := strconv.ParseFloat(a, 64)
+		if err != nil {
+			fmt.Println("Error parsing amount: ", err)
+			os.Exit(1)
+		}
 		categoryMap[lineItem.Category] = HistogramRow{
 			Amount: categoryMap[lineItem.Category].Amount + amount,
 			Number: categoryMap[lineItem.Category].Number + 1,
