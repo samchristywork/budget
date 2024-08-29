@@ -155,6 +155,9 @@ func parseDate(date string) int64 {
 func printSummary(startDate string, endDate string) {
 	fmt.Printf("Summary from %s to %s\n", startDate, endDate)
 
+	totalAmount := 0.0
+	totalNumber := 0
+
 	lineItems := deserialize(saveFile)
 
 	categoryMap := make(map[string]HistogramRow)
@@ -181,9 +184,14 @@ func printSummary(startDate string, endDate string) {
 			continue
 		}
 
+		totalAmount += amount.Amount
+		totalNumber += amount.Number
+
 		fmt.Printf("%s: %.2f (%d Transactions)\n",
 			category, amount.Amount, amount.Number)
 	}
+
+	fmt.Printf("Total: %.2f (%d Transactions)\n", totalAmount, totalNumber)
 }
 
 func main() {
